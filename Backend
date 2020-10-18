@@ -1,0 +1,101 @@
+from random import randint
+import requests
+import json
+from flask import Flask,request
+from polygon import WebSocketClient, STOCKS_CLUSTER
+
+app = Flask(__name__)
+apiKey = 'a05b59f80ea4cb3c5b9a56f71f5bc23a'
+newHeaders = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+
+
+@app.route('/createAccount')
+def createAccount(keyId):
+    url = 'http://api.reimaginebanking.com/customers/{}/accounts?key={}'.format(keyId,apiKey)
+    _type,nickname,rewards,balance,account_number = "Checking","Account1",0,0,0
+    account_number = str(random_with_N_digits())
+    payload = {
+        "type" : _type,
+        "nickname" : nickname,
+        "rewards" : rewards,
+        "balance" : balance,
+        "account_number" : account_number
+    }
+
+    res = requests.post(
+        url,
+        data = json.dumps(payload),
+        headers = newHeaders
+    )
+    print(res.json())
+
+@app.route('/random_with_N_digits')
+def random_with_N_digits():
+    range_start = 10**(16-1)
+    range_end = (10**16)-1
+    return randint(range_start, range_end)
+
+@app.route('/getUserId')
+def getUserId(first_name, last_name):
+    user = []
+    userId = ''
+    url = 'http://api.reimaginebanking.com/customers?key={}'.format(apiKey)
+    res = requests.get(
+        url
+    )
+    user = res.json()
+    for element in user:
+        if element['first_name'] == first_name and element['last_name'] == last_name:
+            userId = (element['_id'])
+    createAccount(userId)
+    
+
+
+
+@app.route('/createUser', methods = ['GET','POST'])
+def createUser():
+    file1 = request.get_json()
+    url = 'http://api.reimaginebanking.com/customers?key={}'.format(apiKey)
+    # file1 = json.load(file1)
+    first_name, last_name,street_number,street_name,city,state,_zip = "","","","","","",""
+    for element in file1:
+        if element == 'first_name':
+            first_name = file1[element]
+        elif element == 'last_name':
+            last_name = file1[element]
+        elif element == 'address':
+            info = file1[element]
+            for x in info:
+                if x == 'street_number':
+                    street_number = info[x]
+                if x == 'street_name':
+                    street_name = info[x]
+                if x == 'city':
+                    city = info[x]
+                if x == 'state':
+                     state = info[x]
+                if x == 'zip': 
+                    _zip = info[x]
+    
+    payload = {
+        "first_name" : first_name,
+        "last_name" : last_name,
+        "address" : {
+            "street_number" : street_number,
+            "street_name" : street_name,
+            "city" : city,
+            "state" : state,
+            "zip" : _zip,
+        }
+    }
+
+    res = requests.post(
+        url,
+        data = json.dumps(payload),
+        headers = newHeaders
+    )
+    
+    getUserId(first_name,last_name)
+    jfile = {"status":"complete"}
+    if res.status_code == 201:
+        return json.dumps(jfile)
